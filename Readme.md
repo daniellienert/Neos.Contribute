@@ -1,3 +1,11 @@
+### Initial setup
+
+Before installing this package, you should have a working development distribution of Neos installed:
+
+1. Create a `composer.json` file with such contents: https://gist.github.com/kitsunet/eb939bc06511ff93c699
+2. Run `composer install`
+3. Install this package by running `composer require neos/contribute`
+
 ### Setup your configuration
 
 The setup wizard interactively configures your flow and neos forks and will also create the forks for you if needed. 

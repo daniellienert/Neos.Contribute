@@ -26,12 +26,12 @@ class GitHubCommandController extends \TYPO3\Flow\Cli\CommandController {
 	protected $configurationSource;
 
 	/**
-	 @Flow\Inject(setting="gitHub")
+	 * @Flow\Inject(setting="gitHub")
 	 */
 	protected $gitHubSettings;
 
 	/**
-	 * @Flow\inject
+	 * @Flow\Inject
 	 * @var \TYPO3\Flow\Utility\Environment
 	 */
 	protected $environment;
@@ -44,19 +44,17 @@ class GitHubCommandController extends \TYPO3\Flow\Cli\CommandController {
 
 
 	/**
-	 * @Flow\inject
+	 * @Flow\Inject
 	 * @var \Neos\Contribute\Domain\Service\GerritService
 	 */
 	protected $gerritService;
 
 
 	/**
-	 * @Flow\inject
+	 * @Flow\Inject
 	 * @var \Neos\Contribute\Domain\Service\GitHubService
 	 */
 	protected $gitHubService;
-
-
 
 
 	public function initializeObject() {
@@ -69,8 +67,10 @@ class GitHubCommandController extends \TYPO3\Flow\Cli\CommandController {
 	 *
 	 * The setup wizard interactively configures your flow and neos forks and will also create the forks for you if needed.
 	 * It further renames the original remotes to "upstream" and adds your fork as remote with name "origin".
+	 *
+	 * @param boolean $force
 	 */
-	public function setupCommand() {
+	public function setupCommand($force = FALSE) {
 
 		$this->outputLine("
 <b>Welcome to Flow / Neos Development</b>
@@ -78,12 +78,34 @@ This wizard gets your environment up and running to easily contribute
 code or documentation to the Neos Project.\n");
 
 		$this->setupAccessToken();
-		$this->setupFork('flow');
-		$this->setupFork('neos');
 
+		foreach (Arrays::getValueByPath($this->gitHubSettings, 'origin.repositories') ?: array() as $repositoryName => $packageConfiguration) {
+			$packageDirectory = FLOW_PATH_ROOT . $packageConfiguration['packageDirectory'];
+			if (!is_dir($packageDirectory)) {
+				$this->outputLine();
+				if (isset($packageConfiguration['status']) && $packageConfiguration['status'] === 'required') {
+					$this->outputLine(sprintf('<error>Look like you do not have the %s Development Collection locally (%s)</error>', ucfirst($repositoryName), $packageDirectory));
+					$this->outputLine('Check your <b>composer.json</b> and run <b>composer update</b> first');
+				} else {
+					$this->outputLine(sprintf('<em>Repository "%s" skipped, because not installed locally</em>', ucfirst($repositoryName)));
+				}
+				continue;
+			}
+			if ($packageConfiguration['type'] === 'package') {
+				$message = sprintf("\nWould you like to setup/check the package at path '%s' ? (Y/n): ", $packageConfiguration['packageDirectory']);
+			} elseif ($packageConfiguration['type'] === 'collection') {
+				$message = sprintf("\nWould you like to setup/check the %s Development Collection ? (Y/n): ", ucfirst($repositoryName));
+			}
+			if ($force === TRUE || $this->output->askConfirmation($message, TRUE)) {
+				$this->setupFork($repositoryName);
+			}
+		}
+
+		$this->outputLine();
+		$this->outputLine('If you install new package from the Neos organisation, feel free to the run the <b>github:setup</b> command again.');
 		$this->outputLine("\n<success>Everything is set up correctly.</success>");
+		$this->outputLine("\n<success>Read the contribution FAQ for more informations: https://www.neos.io/develop/contribute.html</success>");
 	}
-
 
 
 	/**
@@ -116,7 +138,7 @@ code or documentation to the Neos Project.\n");
 		$this->output($this->executeGitCommand(sprintf('git apply --directory %s --check %s', $packageKey, $patchPathAndFileName), $collectionPath));
 		$this->output($this->executeGitCommand(sprintf('git apply --directory %s --stat %s', $packageKey, $patchPathAndFileName), $collectionPath));
 
-		if(!$this->output->askConfirmation("\nWould you like to apply this patch? (Y/n): ", TRUE)) {
+		if (!$this->output->askConfirmation("\nWould you like to apply this patch? (Y/n): ", TRUE)) {
 			return;
 		}
 
@@ -125,7 +147,7 @@ code or documentation to the Neos Project.\n");
 		$this->output($this->executeGitCommand(sprintf('git am --directory %s %s', $packageKey, $patchPathAndFileName), $collectionPath));
 		$this->outputLine(sprintf('<success>Successfully Applied patch %s</success>', $patchId));
 
-		if(!$this->output->askConfirmation("\nWould you like to push the change to your repository and create a pull request? (Y/n)", TRUE)) {
+		if (!$this->output->askConfirmation("\nWould you like to push the change to your repository and create a pull request? (Y/n)", TRUE)) {
 			return;
 		}
 
@@ -150,7 +172,7 @@ code or documentation to the Neos Project.\n");
 		$result = $this->gitHubService->createPullRequest($repository, $patchId, $commitDetails['subject'], $commitDetails['message']);
 		$patchUrl = $result['html_url'];
 
-		$this->outputLine(sprintf('<success>Successfully opened a pull request </success><b>%s</b><success> for patch %s </success>',$patchUrl, $patchId));
+		$this->outputLine(sprintf('<success>Successfully opened a pull request </success><b>%s</b><success> for patch %s </success>', $patchUrl, $patchId));
 	}
 
 
@@ -173,34 +195,36 @@ code or documentation to the Neos Project.\n");
 
 
 	/**
-	 * @param string $collectionName
+	 * @param string $repositoryName
 	 */
-	protected function setupFork($collectionName) {
-		$contributorRepositoryName = (string)Arrays::getValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $collectionName));
+	protected function setupFork($repositoryName) {
+		$this->outputLine();
+		$contributorRepositoryName = (string)Arrays::getValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $repositoryName));
 		if ($contributorRepositoryName !== '') {
-			if($this->gitHubService->checkRepositoryExists($contributorRepositoryName)) {
-				$this->outputLine(sprintf('<success>A fork of the %s dev-collection was found in your github account!</success>', $collectionName));
-				$this->setupRemotes($collectionName);
+			if ($this->gitHubService->checkRepositoryExists($contributorRepositoryName)) {
+				$this->outputLine(sprintf('<success>A fork of the "%s" repository was found in your github account!</success>', $repositoryName));
+				$this->setupRemotes($repositoryName);
 				return;
 			} else {
-				$this->outputLine(sprintf('A fork of %s was configured, but was not found in your GitHub account.', $collectionName));
+				$repositoryUrl = $this->gitHubService->buildHTTPUrlForRepository($repositoryName);
+				$this->outputLine(sprintf('A fork of "%s" was configured, but was not found "%s" in your GitHub account.', $repositoryName, $repositoryUrl));
 			}
 		}
 
 		$originOrganization = Arrays::getValueByPath($this->gitHubSettings, 'origin.organization');
-		$originRepository = Arrays::getValueByPath($this->gitHubSettings, sprintf('origin.repositories.%s.name', $collectionName));
+		$originRepository = Arrays::getValueByPath($this->gitHubSettings, sprintf('origin.repositories.%s.name', $repositoryName));
 
-		$this->outputLine(sprintf("\n<b>Setup %s Development Repository</b>", ucfirst($collectionName)));
+		$this->outputLine(sprintf("\n<b>Setup \"%s\" Repository</b>", ucfirst($repositoryName)));
 
-		if ($this->output->askConfirmation(sprintf('Do you already have a fork of the %s Development Collection? (y/N): ', ucfirst($collectionName)), FALSE)) {
+		if ($this->output->askConfirmation(sprintf('Do you already have a fork of the "%s" Repository? (y/N): ', ucfirst($repositoryName)), FALSE)) {
 			$contributorRepositoryName = $this->output->ask('Please provide the name of your fork (without your username): ');
-			if(!$this->gitHubService->checkRepositoryExists($contributorRepositoryName)) {
+			if (!$this->gitHubService->checkRepositoryExists($contributorRepositoryName)) {
 				$this->outputLine(sprintf('<error>The fork %s was not found in your repository. Please start again</error>', $contributorRepositoryName));
 			}
 
-			$this->gitHubSettings = Arrays::setValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $collectionName), $contributorRepositoryName);
+			$this->gitHubSettings = Arrays::setValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $repositoryName), $contributorRepositoryName);
 		} else {
-			if ($this->output->askConfirmation(sprintf('Should I fork the %s Development Collection into your GitHub Account? (Y/n): ', ucfirst($collectionName)), TRUE)) {
+			if ($this->output->askConfirmation(sprintf('Should I fork the "%s" Repository into your GitHub Account? (Y/n): ', ucfirst($repositoryName)), TRUE)) {
 				$contributorRepositoryName = $originRepository;
 
 				try {
@@ -211,13 +235,13 @@ code or documentation to the Neos Project.\n");
 				}
 
 				$this->outputLine(sprintf('<success>Successfully forked %s/%s to %s</success>', $originOrganization, $originRepository, $response['html_url']));
-				$this->gitHubSettings = Arrays::setValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $collectionName), $contributorRepositoryName);
+				$this->gitHubSettings = Arrays::setValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $repositoryName), $contributorRepositoryName);
 			}
 		}
 
 		$this->saveUserSettings();
 
-		$this->setupRemotes($collectionName);
+		$this->setupRemotes($repositoryName);
 	}
 
 
@@ -225,24 +249,26 @@ code or documentation to the Neos Project.\n");
 	 * Renames the original repository to upstream
 	 * and adds the own fork as origin
 	 *
-	 * @param $collectionName
+	 * @param $repositoryName
 	 * @throws \Exception
 	 */
-	protected function setupRemotes($collectionName) {
-		$packageCollectionPath = Files::concatenatePaths (array(
-			FLOW_PATH_PACKAGES,
-			(string)Arrays::getValueByPath($this->gitHubSettings, sprintf('origin.repositories.%s.packageDirectory', $collectionName))
+	protected function setupRemotes($repositoryName) {
+		$workingDirectory = Files::concatenatePaths(array(
+			FLOW_PATH_ROOT,
+			(string)Arrays::getValueByPath($this->gitHubSettings, sprintf('origin.repositories.%s.packageDirectory', $repositoryName))
 		));
 
-		$originRepositoryName = (string) Arrays::getValueByPath($this->gitHubSettings, sprintf('origin.repositories.%s.name', $collectionName));
-		$contributorRepositoryName = (string) Arrays::getValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $collectionName));
+		$originRepositoryName = (string)Arrays::getValueByPath($this->gitHubSettings, sprintf('origin.repositories.%s.name', $repositoryName));
+		$contributorRepositoryName = (string)Arrays::getValueByPath($this->gitHubSettings, sprintf('contributor.repositories.%s.name', $repositoryName));
 		$sshUrl = $this->gitHubService->buildSSHUrlForRepository($contributorRepositoryName);
 
-		$this->executeGitCommand('git remote rm origin', $packageCollectionPath, TRUE);
-		$this->executeGitCommand('git remote add origin ' . $sshUrl , $packageCollectionPath);
-		$this->executeGitCommand('git remote rm upstream', $packageCollectionPath, TRUE);
-		$this->executeGitCommand(sprintf('git remote add upstream git://github.com/%s/%s.git', $this->gitHubSettings['origin']['organization'], $originRepositoryName), $packageCollectionPath);
-		$this->executeGitCommand('git config --add remote.upstream.fetch +refs/pull/*/head:refs/remotes/upstream/pr/*', $packageCollectionPath);
+		$this->executeGitCommand('git remote rm origin', $workingDirectory, TRUE);
+		$this->executeGitCommand('git remote add origin ' . $sshUrl , $workingDirectory);
+		$this->executeGitCommand('git remote rm upstream', $workingDirectory, TRUE);
+		$this->executeGitCommand(sprintf('git remote add upstream git://github.com/%s/%s.git', $this->gitHubSettings['origin']['organization'], $originRepositoryName), $workingDirectory);
+		$this->executeGitCommand('git fetch --all' , $workingDirectory);
+		$this->executeGitCommand('git branch -u origin/master master' , $workingDirectory);
+		$this->executeGitCommand('git config --add remote.upstream.fetch \'+refs/pull/*/head:refs/remotes/upstream/pr/*\'', $workingDirectory);
 	}
 
 
@@ -290,7 +316,5 @@ code or documentation to the Neos Project.\n");
 
 		return $outputString;
 	}
-
-
 
 }

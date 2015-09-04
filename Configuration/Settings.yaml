@@ -5,11 +5,75 @@ Neos:
         organization: 'neos'
         repositories:
           flow:
+            type: collection
+            status: required
             name: 'flow-development-collection'
-            packageDirectory: 'Framework'
+            packageDirectory: 'Packages/Framework'
           neos:
+            type: collection
+            status: required
             name: 'neos-development-collection'
-            packageDirectory: 'Neos'
+            packageDirectory: 'Packages/Neos'
+          buildEssentials:
+            type: package
+            name: 'BuildEssentials'
+            packageDirectory: 'Build/BuildEssentials'
+          party:
+            type: package
+            name: 'party'
+            packageDirectory: 'Packages/Application/TYPO3.Party'
+          contribute:
+            type: package
+            name: 'Neos.Contribute'
+            packageDirectory: 'Packages/Application/Neos.Contribute'
+          swiftmailer:
+            type: package
+            name: 'swiftmailer'
+            packageDirectory: 'Packages/Application/TYPO3.SwiftMailer'
+          form:
+            type: package
+            name: 'form'
+            packageDirectory: 'Packages/Application/TYPO3.Form'
+          formBuilder:
+            type: package
+            name: 'form-builder'
+            packageDirectory: 'Packages/Application/TYPO3.FormBuilder'
+          doctools:
+            type: package
+            name: 'doctools'
+            packageDirectory: 'Packages/Application/TYPO3.DocTools'
+          googleanalytics:
+            type: package
+            name: 'neos-googleanalytics'
+            packageDirectory: 'Packages/Application/TYPO3.Neos.Googleanalytics'
+          seo:
+            type: package
+            name: 'neos-seo'
+            packageDirectory: 'Packages/Application/TYPO3.Neos.Seo'
+          twitterBootstrap:
+            type: package
+            name: 'twitter-bootstrap'
+            packageDirectory: 'Packages/Application/TYPO3.Twitter.Bootstrap'
+          neosdemotypo3org:
+            type: package
+            name: 'neosdemotypo3org'
+            packageDirectory: 'Packages/Sites/TYPO3.NeosDemoTypo3Org'
+          setup:
+            type: package
+            name: 'setup'
+            packageDirectory: 'Packages/Application/TYPO3.Setup'
+          imagine:
+            type: package
+            name: 'imagine'
+            packageDirectory: 'Packages/Application/TYPO3.Imagine'
+          flowWelcome:
+            type: package
+            name: 'flow-welcome'
+            packageDirectory: 'Packages/Application/TYPO3.Flow.Welcome'
+          typo3crSearch:
+            type: package
+            name: 'typo3cr-search'
+            packageDirectory: 'Packages/Application/TYPO3.TYPO3CR.Search'
       contributor:
         accessToken:
         repositories:

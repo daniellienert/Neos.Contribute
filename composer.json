@@ -4,7 +4,8 @@
     "description": "Methos helping contribution to flow nad neos",
     "require": {
         "typo3/flow": "*",
-	    "knplabs/github-api": "1.4.*@dev"
+	    "knplabs/github-api": "1.4.*@dev",
+        "guzzlehttp/guzzle": "~6.0"
     },
     "autoload": {
         "psr-0": {

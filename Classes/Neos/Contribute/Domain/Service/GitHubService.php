@@ -26,6 +26,7 @@
 
 namespace Neos\Contribute\Domain\Service;
 
+use GuzzleHttp\Client;
 use TYPO3\Flow\Annotations as Flow;
 use Github\Client as GitHubClient;
 use TYPO3\Flow\Configuration\Exception\InvalidConfigurationException;
@@ -126,7 +127,9 @@ class GitHubService {
 	 * @return bool
 	 */
 	public function checkRepositoryExists($repositoryName) {
-		return count($this->getRepositoryConfiguration($repositoryName)) ? TRUE : FALSE;
+		$client = new Client();
+		$response = $client->get($this->buildHTTPUrlForRepository($repositoryName));
+		return $response->getStatusCode() === 200;
 	}
 
 
@@ -151,6 +154,18 @@ class GitHubService {
 	public function buildSSHUrlForRepository($repositoryName) {
 		$this->authenticate();
 		return sprintf('git@github.com:%s/%s.git', $this->currentUserLogin, $repositoryName);
+	}
+
+	/**
+	 * Builds the ssh url for a given repository
+	 *
+	 * @param $repositoryName
+	 * @return string
+	 * @throws InvalidConfigurationException
+	 */
+	public function buildHTTPUrlForRepository($repositoryName) {
+		$this->authenticate();
+		return sprintf('https://github.com/%s/%s', $this->currentUserLogin, $repositoryName);
 	}
 
 

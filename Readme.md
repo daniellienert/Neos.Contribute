@@ -51,3 +51,8 @@ These are the steps you have to do to manually move a Gerrit patch to Github. Th
 
 Hint: If you are using SourceTree, steps 8 and 9 can be done by using the "Create Pull Request" item in
 the "Repository" menu.
+
+#### Other resources
+
+- [Hub](https://hub.github.com/) is a command-line wrapper for git that makes you better at GitHub.
+- [How to undo (almost) anything with Git](https://github.com/blog/2019-how-to-undo-almost-anything-with-git)
